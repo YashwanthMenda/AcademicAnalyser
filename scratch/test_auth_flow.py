@@ -4,67 +4,73 @@ import os
 # Add root folder to path so modules can be imported
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from modules.auth_db import create_user, authenticate_user, user_exists, reset_user_password, init_db
-import sqlite3
+from modules.auth_db import (
+    create_user,
+    user_exists,
+    authenticate_user,
+    create_user_session,
+    verify_user_session,
+    delete_user_session,
+    init_db,
+    _get_db
+)
 
 def run_test():
     init_db()
-    email = "test_reset_user@example.com"
-    name = "Test Reset User"
-    old_pw = "old_secret_123"
-    new_pw = "new_secret_456"
+    db = _get_db()
+    email = "test_session_user@example.com"
+    name = "Test Session User"
+    password = "secret_password_123"
 
-    print("--- Starting Auth Flow Database Test ---")
+    print("--- Starting Auth Session Database Test ---")
 
     # 1. Clean up user if they already exist
-    conn = sqlite3.connect("data/users.db")
-    conn.execute("DELETE FROM users WHERE email = ?", (email,))
-    conn.commit()
-    conn.close()
+    db.users.delete_many({"email": email})
+    print("[OK] Initial user cleanup completed")
 
-    # 2. Verify user doesn't exist
-    assert not user_exists(email), "User should not exist initially"
-    print("[OK] Initial user check passed")
-
-    # 3. Create user
-    success, msg = create_user(email, name, old_pw)
+    # 2. Create user
+    success, msg = create_user(email, name, password)
     assert success, f"Failed to create user: {msg}"
     print("[OK] User creation passed")
 
-    # 4. Verify user exists
-    assert user_exists(email), "User should exist now"
-    print("[OK] User existence verification passed")
+    # 3. Authenticate to get user document info
+    success, user, msg = authenticate_user(email, password)
+    assert success, f"Failed to authenticate user: {msg}"
+    user_id = user["id"]
+    print(f"[OK] Authentication passed, user ID: {user_id}")
 
-    # 5. Authenticate with old password
-    success, user, msg = authenticate_user(email, old_pw)
-    assert success, f"Failed to authenticate with old password: {msg}"
-    assert user["name"] == name, "Authenticated user name mismatch"
-    print("[OK] Old password authentication passed")
+    # 4. Verify no session exists initially
+    # Note: fresh user doesn't have session_token or it is unset
+    user_doc = db.users.find_one({"email": email})
+    assert "session_token" not in user_doc or user_doc["session_token"] is None, "Should not have session token initially"
+    print("[OK] Initial empty session check passed")
 
-    # 6. Reset password
-    success, msg = reset_user_password(email, new_pw)
-    assert success, f"Failed to reset password: {msg}"
-    print("[OK] Password reset query passed")
+    # 5. Create user session
+    token = create_user_session(user_id)
+    assert token is not None, "Failed to create session token"
+    print(f"[OK] Session token created: {token}")
 
-    # 7. Authenticate with old password (should fail)
-    success, user, msg = authenticate_user(email, old_pw)
-    assert not success, "Authentication with old password should have failed"
-    print("[OK] Old password rejection after reset passed")
+    # 6. Verify user session
+    verified_user = verify_user_session(token)
+    assert verified_user is not None, "Failed to verify session token"
+    assert verified_user["email"] == email, "Verified session email mismatch"
+    assert verified_user["id"] == user_id, "Verified session ID mismatch"
+    print("[OK] Session token verification passed")
 
-    # 8. Authenticate with new password (should succeed)
-    success, user, msg = authenticate_user(email, new_pw)
-    assert success, f"Failed to authenticate with new password: {msg}"
-    assert user["name"] == name, "Authenticated user name mismatch"
-    print("[OK] New password authentication passed")
+    # 7. Invalidate user session (logout)
+    delete_user_session(user_id)
+    print("[OK] Session token delete requested")
 
-    # 9. Clean up
-    conn = sqlite3.connect("data/users.db")
-    conn.execute("DELETE FROM users WHERE email = ?", (email,))
-    conn.commit()
-    conn.close()
-    print("[OK] Cleanup completed successfully")
+    # 8. Verify session token is no longer valid
+    verified_user_after = verify_user_session(token)
+    assert verified_user_after is None, "Session token should be invalid after delete"
+    print("[OK] Session token invalidation verification passed")
 
-    print("\nALL TESTS PASSED SUCCESSFULLY!")
+    # 9. Clean up test user
+    db.users.delete_many({"email": email})
+    print("[OK] Test user cleanup passed")
+
+    print("\nALL SESSION TESTS PASSED SUCCESSFULLY!")
 
 if __name__ == "__main__":
     run_test()

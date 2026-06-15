@@ -32,6 +32,14 @@ from modules.auth import handle_google_oauth_callback, render_auth_page, logout_
 from modules.auth_db import add_history_record, update_history_quiz, get_user_history, delete_history_record
 
 
+def _get_query_param(key):
+    """Read a query parameter (compatible with Streamlit 1.28+)."""
+    if hasattr(st, "query_params"):
+        return st.query_params.get(key)
+    values = st.experimental_get_query_params().get(key, [])
+    return values[0] if values else None
+
+
 # Verify API key on startup
 def verify_api_key():
     """Verify that Gemini API key is configured"""
@@ -144,6 +152,34 @@ def initialize_session_state():
         
     if 'insight_results' not in st.session_state:
         st.session_state.insight_results = {}
+        
+    if 'session_token' not in st.session_state:
+        st.session_state.session_token = None
+        
+    if 'clear_local_storage' not in st.session_state:
+        st.session_state.clear_local_storage = False
+        
+    if 'logged_out' not in st.session_state:
+        st.session_state.logged_out = False
+
+    # Check query params for token on startup
+    token = _get_query_param("session_token")
+    if token and not st.session_state.authenticated:
+        from modules.auth_db import verify_user_session
+        user = verify_user_session(token)
+        if user:
+            st.session_state.authenticated = True
+            st.session_state.user = user
+            st.session_state.session_token = token
+            # Restore saved page and history view if present
+            stored_page = _get_query_param("page") or "upload"
+            st.session_state.page = stored_page
+            stored_view_id = _get_query_param("history_view_id")
+            if stored_view_id:
+                st.session_state.history_view_id = stored_view_id
+        else:
+            # Invalid token in URL. Request browser session cleanup
+            st.session_state.clear_local_storage = True
 
 
 def display_header():
@@ -847,11 +883,113 @@ def sidebar_navigation():
             st.rerun()
 
 
+def render_js_session_manager():
+    """Render a hidden HTML block with JS to manage localStorage session token synchronization."""
+    # 1. Check if we just logged out or have invalid session
+    if st.session_state.get("logged_out", False) or st.session_state.get("clear_local_storage", False):
+        js_code = (
+            "try {"
+            "localStorage.removeItem('session_token');"
+            "localStorage.removeItem('page');"
+            "localStorage.removeItem('history_view_id');"
+            "window.location.search = '';"
+            "} catch(e) { console.error(e); }"
+        )
+        st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
+        st.session_state.logged_out = False
+        st.session_state.clear_local_storage = False
+        st.stop()
+        return
+
+    # 2. Check if we are authenticated
+    if st.session_state.get("authenticated"):
+        token = st.session_state.get("session_token")
+        page = st.session_state.get("page", "upload")
+        history_view_id = st.session_state.get("history_view_id") or ""
+        
+        if token:
+            # Sync session to localStorage (without reloading!)
+            js_code = (
+                f"try {{"
+                f"localStorage.setItem('session_token', '{token}');"
+                f"localStorage.setItem('page', '{page}');"
+                f"localStorage.setItem('history_view_id', '{history_view_id}');"
+                f"}} catch(e) {{ console.error(e); }}"
+            )
+            st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
+    else:
+        # 3. If NOT authenticated, check localStorage for existing session
+        # If there's an existing session in localStorage but not in the URL, redirect URL to it
+        js_code = (
+            "try {"
+            "var token = localStorage.getItem('session_token');"
+            "var page = localStorage.getItem('page') || 'upload';"
+            "var view_id = localStorage.getItem('history_view_id') || '';"
+            "if (token && !window.location.search.includes('session_token=')) {"
+            "var query = '?session_token=' + token + '&page=' + page;"
+            "if (view_id) { query += '&history_view_id=' + view_id; }"
+            "window.location.search = query;"
+            "}"
+            "} catch(e) { console.error(e); }"
+        )
+        st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
+
+
+def sync_query_params():
+    """Sync current session state variables to query parameters if they differ."""
+    if not st.session_state.get("authenticated"):
+        return
+        
+    token = st.session_state.get("session_token")
+    if not token:
+        return
+        
+    page = st.session_state.get("page", "upload")
+    history_view_id = st.session_state.get("history_view_id")
+    
+    # Read currently set query parameters
+    if hasattr(st, "query_params"):
+        stored_token = st.query_params.get("session_token")
+        stored_page = st.query_params.get("page")
+        stored_view_id = st.query_params.get("history_view_id")
+    else:
+        q_params = st.experimental_get_query_params()
+        stored_token = q_params.get("session_token", [None])[0]
+        stored_page = q_params.get("page", [None])[0]
+        stored_view_id = q_params.get("history_view_id", [None])[0]
+        
+    # Check if we need to update
+    needs_update = False
+    if stored_token != token:
+        needs_update = True
+    if stored_page != page:
+        needs_update = True
+    if history_view_id:
+        if stored_view_id != history_view_id:
+            needs_update = True
+    else:
+        if stored_view_id is not None:
+            needs_update = True
+            
+    if needs_update:
+        params = {"session_token": token, "page": page}
+        if history_view_id:
+            params["history_view_id"] = history_view_id
+            
+        if hasattr(st, "query_params"):
+            st.query_params.update(params)
+        else:
+            st.experimental_set_query_params(**params)
+
+
 def main():
     """Main application function"""
     
     # Initialize session state
     initialize_session_state()
+    
+    # Run JS Session Manager to sync/clear local storage and URL
+    render_js_session_manager()
     
     # Handle Google OAuth callback
     handle_google_oauth_callback()
@@ -860,6 +998,9 @@ def main():
     if not st.session_state.authenticated:
         render_auth_page()
         return
+        
+    # Keep query parameters in sync with python states
+    sync_query_params()
         
     # Display header
     display_header()

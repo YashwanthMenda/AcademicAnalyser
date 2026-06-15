@@ -752,8 +752,22 @@ def handle_google_oauth_callback():
         st.session_state.user = user
         st.session_state.credentials = credentials
 
-        _clear_query_params()
-        st.rerun()
+        from modules.auth_db import create_user_session
+        session_token = create_user_session(user["id"])
+        if session_token:
+            st.session_state.session_token = session_token
+            js_code = (
+                f"try {{"
+                f"localStorage.setItem('session_token', '{session_token}');"
+                f"localStorage.setItem('page', 'upload');"
+                f"window.location.search = '?session_token={session_token}&page=upload';"
+                f"}} catch(e) {{ console.error(e); }}"
+            )
+            st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
+            st.stop()
+        else:
+            _clear_query_params()
+            st.rerun()
 
     except Exception as error:
         st.error(f"Google Sign-In failed: {error}")
@@ -1071,8 +1085,22 @@ def render_auth_page():
                         st.session_state.authenticated = True
                         st.session_state.user = user
                         
-                        st.success(message)
-                        st.rerun()
+                        from modules.auth_db import create_user_session
+                        session_token = create_user_session(user["id"])
+                        if session_token:
+                            st.session_state.session_token = session_token
+                            js_code = (
+                                f"try {{"
+                                f"localStorage.setItem('session_token', '{session_token}');"
+                                f"localStorage.setItem('page', 'upload');"
+                                f"window.location.search = '?session_token={session_token}&page=upload';"
+                                f"}} catch(e) {{ console.error(e); }}"
+                            )
+                            st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
+                            st.stop()
+                        else:
+                            st.success(message)
+                            st.rerun()
                     else:
                         st.error(message)
 
@@ -1241,6 +1269,17 @@ def render_auth_page():
 
 def logout_user():
     """Clear authentication state."""
-    for key in ["authenticated", "user"]:
+    # Delete session token from DB if it exists
+    user = st.session_state.get("user")
+    if user and "id" in user:
+        try:
+            from modules.auth_db import delete_user_session
+            delete_user_session(user["id"])
+        except Exception as e:
+            print(f"Error deleting session on logout: {e}")
+            
+    for key in ["authenticated", "user", "session_token"]:
         if key in st.session_state:
             del st.session_state[key]
+            
+    st.session_state.logged_out = True
