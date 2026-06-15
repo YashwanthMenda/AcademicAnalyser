@@ -3,7 +3,6 @@ Simple PDF Text Extractor
 Extracts only selectable text, ignores all images
 """
 
-import pdfplumber
 import PyPDF2
 import io
 import streamlit as st
@@ -101,7 +100,6 @@ def extract_from_pdf(pdf_file):
     
     # Try extraction methods in order of reliability
     methods = [
-        ("pdfplumber", extract_with_pdfplumber),
         ("PyPDF2", extract_with_pypdf2)
     ]
     
@@ -171,47 +169,7 @@ def validate_pdf_structure(pdf_file):
 # PyMuPDF extraction removed to avoid C dependencies
 
 
-def extract_with_pdfplumber(pdf_file):
-    """
-    Extract text using pdfplumber
-    Only extracts text, ignores images
-    """
-    
-    try:
-        full_text = []
-        
-        with pdfplumber.open(pdf_file) as pdf:
-            total_pages = len(pdf.pages)
-            
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            for page_num, page in enumerate(pdf.pages):
-                status_text.text(f"📖 Reading page {page_num + 1}/{total_pages}")
-                
-                # Extract only text (not images or tables)
-                text = page.extract_text()
-                
-                if text and text.strip():
-                    full_text.append(text.strip())
-                
-                progress_bar.progress((page_num + 1) / total_pages)
-            
-            progress_bar.empty()
-            status_text.empty()
-        
-        # Combine all text
-        result = '\n\n'.join(full_text)
-        
-        if result and result.strip():
-            word_count = len(result.split())
-            st.success(f"✅ pdfplumber: Extracted {word_count:,} words from {total_pages} pages")
-            return result
-        
-        return None
-        
-    except Exception as e:
-        raise e
+# pdfplumber extraction removed to avoid Pillow/zlib C dependency
 
 
 def extract_with_pypdf2(pdf_file):
