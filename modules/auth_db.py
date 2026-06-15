@@ -43,11 +43,11 @@ def _verify_password(password, password_hash):
 
 def create_user(email, name, password):
     """Register a new local user in MongoDB."""
-    init_db()
     email_clean = email.lower().strip()
     password_hash = _hash_password(password)
 
     try:
+        init_db()
         db = _get_db()
         db.users.insert_one({
             "email": email_clean,
@@ -60,31 +60,34 @@ def create_user(email, name, password):
     except Exception as e:
         if "duplicate key" in str(e) or "E11000" in str(e):
             return False, "An account with this email already exists."
-        return False, f"Failed to create account: {e}"
+        return False, f"Failed to create account: {e}. Please ensure your MongoDB Atlas IP Whitelist (Network Access) is set to allow connections from anywhere (0.0.0.0/0)."
 
 
 def authenticate_user(email, password):
     """Authenticate a local user in MongoDB."""
-    init_db()
-    db = _get_db()
-    
-    user_doc = db.users.find_one({"email": email.lower().strip()})
-    if not user_doc:
-        return False, None, "Invalid email or password."
+    try:
+        init_db()
+        db = _get_db()
+        
+        user_doc = db.users.find_one({"email": email.lower().strip()})
+        if not user_doc:
+            return False, None, "Invalid email or password."
 
-    if user_doc.get("auth_provider") == "google" and not user_doc.get("password_hash"):
-        return False, None, "This account uses Google Sign-In."
+        if user_doc.get("auth_provider") == "google" and not user_doc.get("password_hash"):
+            return False, None, "This account uses Google Sign-In."
 
-    if not _verify_password(password, user_doc.get("password_hash")):
-        return False, None, "Invalid email or password."
+        if not _verify_password(password, user_doc.get("password_hash")):
+            return False, None, "Invalid email or password."
 
-    user = {
-        "id": str(user_doc["_id"]),
-        "email": user_doc["email"],
-        "name": user_doc["name"],
-        "auth_provider": user_doc["auth_provider"],
-    }
-    return True, user, "Login successful."
+        user = {
+            "id": str(user_doc["_id"]),
+            "email": user_doc["email"],
+            "name": user_doc["name"],
+            "auth_provider": user_doc["auth_provider"],
+        }
+        return True, user, "Login successful."
+    except Exception as e:
+        return False, None, f"Database connection error: {e}. Please check your MONGO_URI in Secrets and verify that MongoDB Atlas Network Access is set to allow connections from anywhere (0.0.0.0/0)."
 
 
 def get_or_create_google_user(email, name, google_id):
