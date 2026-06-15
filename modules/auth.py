@@ -760,7 +760,9 @@ def handle_google_oauth_callback():
                 f"try {{"
                 f"localStorage.setItem('session_token', '{session_token}');"
                 f"localStorage.setItem('page', 'upload');"
+                f"setTimeout(function() {{"
                 f"window.location.search = '?session_token={session_token}&page=upload';"
+                f"}}, 100);"
                 f"}} catch(e) {{ console.error(e); }}"
             )
             st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
@@ -1093,7 +1095,9 @@ def render_auth_page():
                                 f"try {{"
                                 f"localStorage.setItem('session_token', '{session_token}');"
                                 f"localStorage.setItem('page', 'upload');"
+                                f"setTimeout(function() {{"
                                 f"window.location.search = '?session_token={session_token}&page=upload';"
+                                f"}}, 100);"
                                 f"}} catch(e) {{ console.error(e); }}"
                             )
                             st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)

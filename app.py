@@ -892,14 +892,16 @@ def render_js_session_manager():
             "localStorage.removeItem('session_token');"
             "localStorage.removeItem('page');"
             "localStorage.removeItem('history_view_id');"
+            "setTimeout(function() {"
+            "if (window.location.search !== '') {"
             "window.location.search = '';"
+            "}"
+            "}, 100);"
             "} catch(e) { console.error(e); }"
         )
         st.markdown(f'<img src="x" onerror="{js_code}" style="display:none;"/>', unsafe_allow_html=True)
         st.session_state.logged_out = False
         st.session_state.clear_local_storage = False
-        st.stop()
-        return
 
     # 2. Check if we are authenticated
     if st.session_state.get("authenticated"):
