@@ -11,6 +11,13 @@ import threading
 # Load environment variables
 load_dotenv()
 
+# Load environment variables from Streamlit Secrets as fallback for cloud deployment
+try:
+    for key in st.secrets.keys():
+        os.environ[key] = str(st.secrets[key])
+except Exception:
+    pass
+
 # Import custom modules
 from datetime import datetime
 from modules.pdf_reader import extract_text_from_file, validate_pdf, get_pdf_info
