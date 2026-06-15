@@ -5,7 +5,7 @@ Extracts only selectable text, ignores all images
 
 import pdfplumber
 import PyPDF2
-import fitz  # PyMuPDF
+import io
 import streamlit as st
 from docx import Document
 
@@ -101,7 +101,6 @@ def extract_from_pdf(pdf_file):
     
     # Try extraction methods in order of reliability
     methods = [
-        ("PyMuPDF", extract_with_pymupdf),
         ("pdfplumber", extract_with_pdfplumber),
         ("PyPDF2", extract_with_pypdf2)
     ]
@@ -150,9 +149,8 @@ def validate_pdf_structure(pdf_file):
         
         # Try to open
         try:
-            pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            page_count = pdf_doc.page_count
-            pdf_doc.close()
+            reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+            page_count = len(reader.pages)
             
             if page_count == 0:
                 st.error("❌ PDF has 0 pages")
@@ -170,51 +168,7 @@ def validate_pdf_structure(pdf_file):
         return False
 
 
-def extract_with_pymupdf(pdf_file):
-    """
-    Extract text using PyMuPDF
-    Only extracts text layer, ignores all images
-    """
-    
-    try:
-        pdf_bytes = pdf_file.read()
-        pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-        
-        total_pages = pdf_document.page_count
-        full_text = []
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        for page_num in range(total_pages):
-            status_text.text(f"📖 Reading page {page_num + 1}/{total_pages}")
-            
-            page = pdf_document[page_num]
-            
-            # Extract ONLY text (flag=0 means text only, no images)
-            text = page.get_text("text")
-            
-            if text and text.strip():
-                full_text.append(text.strip())
-            
-            progress_bar.progress((page_num + 1) / total_pages)
-        
-        pdf_document.close()
-        progress_bar.empty()
-        status_text.empty()
-        
-        # Combine all text
-        result = '\n\n'.join(full_text)
-        
-        if result and result.strip():
-            word_count = len(result.split())
-            st.success(f"✅ PyMuPDF: Extracted {word_count:,} words from {total_pages} pages")
-            return result
-        
-        return None
-        
-    except Exception as e:
-        raise e
+# PyMuPDF extraction removed to avoid C dependencies
 
 
 def extract_with_pdfplumber(pdf_file):
@@ -337,9 +291,8 @@ def get_pdf_info(pdf_file):
             pdf_bytes = pdf_file.read()
             pdf_file.seek(0)
             
-            pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            page_count = pdf_doc.page_count
-            pdf_doc.close()
+            reader = PyPDF2.PdfReader(io.BytesIO(pdf_bytes))
+            page_count = len(reader.pages)
             
             return {
                 'pages': page_count,
