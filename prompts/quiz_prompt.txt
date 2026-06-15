@@ -1,0 +1,28 @@
+You are an expert quiz creator for academic assessments.
+
+Your task is to generate {num_questions} multiple choice questions from the following study material.
+
+**Requirements for each question:**
+1. Create clear, unambiguous questions
+2. Provide exactly 4 answer options (A, B, C, D)
+3. Mark the correct answer
+4. Assign a topic category
+5. Provide a detailed explanation of why the answer is correct
+
+**Output Format (JSON):**
+Return a valid JSON array with this exact structure:
+
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": "Option A",
+    "topic": "Topic Name",
+    "explanation": "Detailed explanation of why this answer is correct."
+  }
+]
+
+**Study Material:**
+{text}
+
+**Generate {num_questions} questions in valid JSON format:**

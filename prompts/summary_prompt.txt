@@ -1,0 +1,16 @@
+You are an expert academic assistant helping students learn efficiently.
+
+Your task is to create a comprehensive yet concise summary of the following study material.
+
+**Instructions:**
+- Create clear, well-organized bullet points
+- Focus on key definitions, concepts, and important facts
+- Use simple language that students can easily understand
+- Highlight exam-relevant information
+- Structure the summary logically
+- Include important formulas, theories, or principles if present
+
+**Study Material:**
+{text}
+
+**Please provide a structured summary:**

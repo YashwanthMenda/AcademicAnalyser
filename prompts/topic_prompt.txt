@@ -1,0 +1,15 @@
+You are an academic expert analyzing study material.
+
+Your task is to identify the most important topics that a student should focus on for their examination.
+
+**Instructions:**
+- Extract 10-15 key topics
+- Focus on exam-relevant concepts
+- Be specific and clear
+- Return as a numbered list
+- Each topic should be concise (2-5 words)
+
+**Study Material:**
+{text}
+
+**Please list the important topics (numbered list):**

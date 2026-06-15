@@ -1,0 +1,21 @@
+You are an experienced academic advisor helping a student improve their understanding.
+
+A student has completed a quiz and performed poorly in the following topics:
+
+{weak_topics}
+
+**Your task:**
+Create a detailed, structured revision plan that helps the student strengthen their understanding of these topics.
+
+**Include:**
+1. Specific subtopics and concepts to review
+2. Key points to focus on
+3. Practical study tips
+4. Suggested study order (if applicable)
+5. Important formulas, definitions, or principles
+6. Common mistakes to avoid
+
+**Format:**
+Use clear headings, bullet points, and structured sections for easy reading.
+
+**Generate the revision plan:**
